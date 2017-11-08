@@ -67,7 +67,8 @@ void onEvent (ev_t ev) {
 }
 
 void setup() {
-    while (!Serial);	// Wait for the serial port to wake up, otherwise Linux has trouble to connect.
+    //while (!Serial);	// Wait for the serial port to wake up, otherwise Linux has trouble to connect.
+    delay(5000);
 
     Serial.begin(115200);
     Serial.println(F("Starting..."));
