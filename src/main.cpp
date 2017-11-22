@@ -55,9 +55,6 @@ void do_send(osjob_t* j){
     // Next TX is scheduled after TX_COMPLETE event.
 }
 
-
-
-
 void onEvent (ev_t ev) {
     if (ev == EV_TXCOMPLETE) {
         Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
