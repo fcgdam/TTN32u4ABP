@@ -3,6 +3,7 @@
 // Based on examples from https://github.com/matthijskooijman/arduino-lmic
 // Copyright (c) 2015 Thomas Telkamp and Matthijs Kooijman
 
+#include <Arduino.h>
 #include "lmic.h"
 #include <hal/hal.h>
 #include <SPI.h>
