@@ -3,10 +3,21 @@
 // Based on examples from https://github.com/matthijskooijman/arduino-lmic
 // Copyright (c) 2015 Thomas Telkamp and Matthijs Kooijman
 
+#define BSFRANCEBOARD 1
+#define LOWPOWER 1
+
 #include <Arduino.h>
 #include "lmic.h"
 #include <hal/hal.h>
 #include <SPI.h>
+
+// https://github.com/thesolarnomad/lora-serialization
+#include <LoraMessage.h>  // Use the encoder to format and transmit data.
+
+#define LEDPIN 13
+#if BSFRANCEBOARD
+#define VBATPIN A9
+#endif
 
 /*************************************
  * TODO: Change the following keys
@@ -34,24 +45,53 @@ const unsigned TX_INTERVAL = 60;
 
 // Pin mapping
 // These settings are for the user made board with the Atmega32u4 and the Wemos RFM95 shield.
+/*
 const lmic_pinmap lmic_pins = {
     .nss = 9,
     .rxtx = LMIC_UNUSED_PIN,
     .rst = LMIC_UNUSED_PIN,
-    .dio = {8, 8, LMIC_UNUSED_PIN}  // Since the Wemos Lora Shield merges the pin with diodes, just use the same pin number
+    .dio = {8, 8, LMIC_UNUSED_PIN} // Since the Wemos Lora Shield merges the pin with diodes, just use the same pin number };
+*/
+
+// These settings are for the BSFrance LORA32U4 board. Remember: pin 6 must be connected to DIO6 through a jumper wire!
+const lmic_pinmap lmic_pins = {
+    .nss = 8,
+    .rxtx = LMIC_UNUSED_PIN,
+    .rst = 4,
+    .dio = {7, 6 , LMIC_UNUSED_PIN}
 };
 
-void do_send(osjob_t* j){
-    // Payload to send (uplink)
-    static uint8_t message[] = "Hello World!";
+// The BSFrance Lora32U4 board has a voltage divider from the LiPo connector that allows
+// to measure battery voltage.
+#if BSFRANCEBOARD
+float getBatVoltage() {
+  float measuredvbat = analogRead(VBATPIN);
+  measuredvbat *= 2;    // Voltage is devided by two by bridge resistor so multiply back
+  measuredvbat *= 3.3;  // Multiply by 3.3V, our reference voltage
+  measuredvbat /= 1024; // convert to voltage
+  Serial.print("VBat: " ); Serial.println(measuredvbat);
+  return measuredvbat;
+}
+#endif
 
+
+void do_send(osjob_t* j){
     // Check if there is not a current TX/RX job running
     if (LMIC.opmode & OP_TXRXPEND) {
         Serial.println(F("OP_TXRXPEND, not sending"));
     } else {
         // Prepare upstream data transmission at the next possible time.
+        #if BSFRANCEBOARD
+        LoraMessage message;
+        message.addTemperature(getBatVoltage());
+        LMIC_setTxData2(1, message.getBytes(), message.getLength(),0);
+        #else
+        static uint8_t message[] = "Hello World!";
         LMIC_setTxData2(1, message, sizeof(message)-1, 0);
+        #endif
         Serial.println(F("Sending uplink packet..."));
+        // Lit up the led to signal transmission . Should not be used if aiming to save power...
+        digitalWrite(LEDPIN,HIGH);
     }
     // Next TX is scheduled after TX_COMPLETE event.
 }
@@ -61,12 +101,19 @@ void onEvent (ev_t ev) {
         Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
         // Schedule next transmission
         os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
+        digitalWrite(LEDPIN,LOW);
     }
 }
 
 void setup() {
     //while (!Serial);	// Wait for the serial port to wake up, otherwise Linux has trouble to connect.
-    delay(5000);
+    pinMode(LEDPIN,OUTPUT);
+    for ( int i = 0 ; i < 3 ; i++) {
+      digitalWrite(LEDPIN,HIGH);
+      delay(500);
+      digitalWrite(LEDPIN,LOW);
+      delay(500);
+    }
 
     Serial.begin(115200);
     Serial.println(F("Starting..."));
