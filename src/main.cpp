@@ -29,7 +29,6 @@ static u1_t APPSKEY[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 
 static u4_t DEVADDR = 0x00000000;   // Put here the device id in hexadecimal form.
 
-
 // These callbacks are only used in over-the-air activation, so they are
 // left empty here (we cannot leave them out completely unless
 // DISABLE_JOIN is set in config.h, otherwise the linker will complain).
@@ -82,9 +81,11 @@ void do_send(osjob_t* j){
     } else {
         // Prepare upstream data transmission at the next possible time.
         #if BSFRANCEBOARD
-        LoraMessage message;
-        message.addTemperature(getBatVoltage());
-        LMIC_setTxData2(1, message.getBytes(), message.getLength(),0);
+        float vbat = getBatVoltage();
+        uint8_t message[2];
+        message[0] = (uint8_t)vbat; // Integer part
+        message[1] = (uint8_t)((vbat-message[0])*100);
+        LMIC_setTxData2(1, message, 2 ,0);
         #else
         static uint8_t message[] = "Hello World!";
         LMIC_setTxData2(1, message, sizeof(message)-1, 0);
